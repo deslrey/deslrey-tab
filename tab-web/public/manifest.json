@@ -1,0 +1,19 @@
+{
+    "manifest_version": 3,
+    "name": "Deslrey Tab",
+    "version": "1.0.0",
+    "description": "基于 React + TS + Vite 的自定义标签页",
+    "chrome_url_overrides": {
+        "newtab": "index.html"
+    },
+    "action": {
+        "default_title": "查看我的数据"
+    },
+    "permissions": [
+        "storage"
+    ],
+    "host_permissions": [
+        "http://localhost/*",
+        "https://你的服务器域名/*"
+    ]
+}
