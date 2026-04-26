@@ -1,0 +1,29 @@
+# 调试模式
+# 如果是false则打印到 ./log文件
+# debug: true
+debug: true
+#允许跨域的域名
+domainName: "*"
+
+# 监听端口
+port: 8081
+
+# jwt密钥
+jwtSigningKey: "****************"
+
+# postgresql数据库
+postgresql:
+  host: "localhost"
+  user: "postgres"
+  password: "****************"
+  dbName: "deslrey-tab"
+  port: 5432
+
+
+# redis数据库
+redis:
+  host: "localhost"
+  user: ""
+  password: "@24hours"
+  dbName: 0
+  port: 6379
