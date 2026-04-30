@@ -1,5 +1,26 @@
-import { Search, Settings } from "lucide-react";
+import {
+  BookOpen,
+  Briefcase,
+  Code2,
+  Gamepad2,
+  Heart,
+  Home,
+  Image,
+  LayoutGrid,
+  Map as MapIcon,
+  Music,
+  Palette,
+  Plane,
+  Plus,
+  Search,
+  Settings,
+  ShoppingBag,
+  Star,
+  UserCircle2,
+  Wrench,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import type { ComponentType } from "react";
 import type { MouseEvent } from "react";
 
 import { GlobalContextMenu } from "@/components/tab/GlobalContextMenu";
@@ -19,11 +40,48 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { defaultQuickSites, engines } from "@/tab/constants";
+import { defaultGroups, defaultQuickSites, engines } from "@/tab/constants";
 import { buildFaviconUrl, buildGoogleFaviconUrl, extractHostAndInitial, normalizeUrl } from "@/tab/favicon";
-import type { ContextMenuState, IconMenuState, IconSource, QuickSite, TileSize } from "@/tab/types";
+import type { ContextMenuState, IconMenuState, IconSource, QuickSite, TabGroup, TileSize } from "@/tab/types";
 
-const emptySiteForm: QuickSite = { name: "", short: "", url: "", color: "bg-zinc-900", favicon: "" };
+const emptySiteForm: QuickSite = { name: "", short: "", url: "", color: "bg-zinc-900", favicon: "", groupId: "home" };
+const groupIconOptions: TabGroup["icon"][] = [
+  "home",
+  "code",
+  "group",
+  "heart",
+  "music",
+  "briefcase",
+  "gamepad",
+  "book",
+  "wrench",
+  "star",
+  "palette",
+  "image",
+  "plane",
+  "map",
+  "shopping-bag",
+  "terminal",
+];
+
+const groupIconMap = {
+  home: Home,
+  code: Code2,
+  group: LayoutGrid,
+  heart: Heart,
+  music: Music,
+  briefcase: Briefcase,
+  gamepad: Gamepad2,
+  book: BookOpen,
+  wrench: Wrench,
+  star: Star,
+  palette: Palette,
+  image: Image,
+  plane: Plane,
+  map: MapIcon,
+  "shopping-bag": ShoppingBag,
+  terminal: Code2,
+} as const satisfies Record<TabGroup["icon"], ComponentType<{ className?: string }>>;
 
 function App() {
   const [sites, setSites] = useState<QuickSite[]>(() => {
@@ -34,6 +92,7 @@ function App() {
           ...site,
           favicon: buildFaviconUrl(site.url),
           iconSource: "current",
+          groupId: site.groupId ?? "home",
         }));
       }
       return (JSON.parse(cached) as QuickSite[]).map((site) => ({
@@ -42,14 +101,44 @@ function App() {
         iconSource:
           site.iconSource ??
           (site.favicon?.includes("google.com/s2/favicons") ? "official" : site.favicon ? "current" : "text"),
+        groupId: site.groupId ?? "home",
       }));
     } catch {
       return defaultQuickSites.map((site) => ({
         ...site,
         favicon: buildFaviconUrl(site.url),
         iconSource: "current",
+        groupId: site.groupId ?? "home",
       }));
     }
+  });
+  const [groups, setGroups] = useState<TabGroup[]>(() => {
+    try {
+      const cached = window.localStorage.getItem("tab-groups");
+      return cached ? (JSON.parse(cached) as TabGroup[]) : defaultGroups;
+    } catch {
+      return defaultGroups;
+    }
+  });
+  const [activeGroupId, setActiveGroupId] = useState(() => {
+    try {
+      return window.localStorage.getItem("tab-active-group") ?? "home";
+    } catch {
+      return "home";
+    }
+  });
+  const [sidebarExpanded, setSidebarExpanded] = useState(false);
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [groupForm, setGroupForm] = useState<{ name: string; icon: TabGroup["icon"] }>({
+    name: "",
+    icon: "group",
+  });
+  const [groupMenu, setGroupMenu] = useState<{ open: boolean; x: number; y: number; groupId: string | null }>({
+    open: false,
+    x: 0,
+    y: 0,
+    groupId: null,
   });
 
   const [keyword, setKeyword] = useState("");
@@ -100,6 +189,8 @@ function App() {
   useEffect(() => window.localStorage.setItem("tab-site-sizes", JSON.stringify(siteSizes)), [siteSizes]);
   useEffect(() => window.localStorage.setItem("tab-sites", JSON.stringify(sites)), [sites]);
   useEffect(() => window.localStorage.setItem("tab-site-order", JSON.stringify(siteOrder)), [siteOrder]);
+  useEffect(() => window.localStorage.setItem("tab-groups", JSON.stringify(groups)), [groups]);
+  useEffect(() => window.localStorage.setItem("tab-active-group", activeGroupId), [activeGroupId]);
 
   useEffect(() => {
     const names = new Set(sites.map((site) => site.name));
@@ -115,16 +206,33 @@ function App() {
       if (event.key !== "Escape") return;
       setContextMenu((prev) => ({ ...prev, open: false }));
       setIconMenu((prev) => ({ ...prev, open: false }));
+      setGroupMenu((prev) => ({ ...prev, open: false }));
       setIsTimeExpanded(false);
     };
     window.addEventListener("keydown", onEscape);
     return () => window.removeEventListener("keydown", onEscape);
   }, []);
 
+  useEffect(() => {
+    if (groupMenu.open) {
+      setSidebarExpanded(true);
+    }
+  }, [groupMenu.open]);
+
+  useEffect(() => {
+    if (groupDialogOpen) {
+      setSidebarExpanded(true);
+    }
+  }, [groupDialogOpen]);
+
   const orderedSites = useMemo(() => {
     const byName = new Map(sites.map((site) => [site.name, site]));
     return siteOrder.map((name) => byName.get(name)).filter((site): site is QuickSite => Boolean(site));
   }, [siteOrder, sites]);
+  const visibleSites = useMemo(
+    () => orderedSites.filter((site) => (site.groupId ?? "home") === activeGroupId),
+    [activeGroupId, orderedSites],
+  );
 
   const currentEngineKey = useMemo(
     () => engines.find((engine) => engine.url === searchEngine)?.key ?? "google",
@@ -147,6 +255,7 @@ function App() {
   const closeMenus = () => {
     setContextMenu((prev) => ({ ...prev, open: false }));
     setIconMenu((prev) => ({ ...prev, open: false }));
+    setGroupMenu((prev) => ({ ...prev, open: false }));
   };
 
   const openRightMenu = (event: MouseEvent<HTMLElement>) => {
@@ -196,10 +305,35 @@ function App() {
   };
 
   const openAddDialog = () => {
-    setAddForm(emptySiteForm);
+    setAddForm({ ...emptySiteForm, groupId: activeGroupId });
     setAddIconSource("current");
     setAddIconOpen(true);
     setContextMenu((prev) => ({ ...prev, open: false }));
+  };
+
+  const openAddGroupDialog = () => {
+    setEditingGroupId(null);
+    setGroupForm({ name: "", icon: "group" });
+    setGroupDialogOpen(true);
+    setGroupMenu((prev) => ({ ...prev, open: false }));
+  };
+
+  const openEditGroupDialog = () => {
+    if (!groupMenu.groupId) return;
+    const target = groups.find((group) => group.id === groupMenu.groupId);
+    if (!target) return;
+    setEditingGroupId(target.id);
+    setGroupForm({ name: target.name, icon: target.icon });
+    setGroupDialogOpen(true);
+    setGroupMenu((prev) => ({ ...prev, open: false }));
+  };
+
+  const openGroupMenu = (event: MouseEvent<HTMLElement>, groupId: string) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const x = Math.min(event.clientX, window.innerWidth - 170);
+    const y = Math.min(event.clientY, window.innerHeight - 110);
+    setGroupMenu({ open: true, x: Math.max(x, 12), y: Math.max(y, 12), groupId });
   };
 
   const openEditDialog = () => {
@@ -233,6 +367,7 @@ function App() {
       url: normalizedUrl,
       color: addForm.color,
       iconSource: addIconSource,
+      groupId: addForm.groupId ?? activeGroupId,
       favicon:
         addIconSource === "text"
           ? ""
@@ -243,6 +378,43 @@ function App() {
     setSites((prev) => [...prev, nextSite]);
     setSiteOrder((prev) => [...prev, uniqueName]);
     setAddIconOpen(false);
+  };
+
+  const saveGroup = () => {
+    const name = groupForm.name.trim();
+    if (!name) return;
+    if (editingGroupId) {
+      setGroups((prev) =>
+        prev.map((group) => (group.id === editingGroupId ? { ...group, name, icon: groupForm.icon } : group)),
+      );
+      setActiveGroupId(editingGroupId);
+    } else {
+      const id = `group-${Date.now()}`;
+      const next: TabGroup = { id, name, icon: groupForm.icon };
+      setGroups((prev) => [...prev, next]);
+      setActiveGroupId(id);
+    }
+    setGroupDialogOpen(false);
+  };
+
+  const removeGroup = () => {
+    const groupId = groupMenu.groupId;
+    if (!groupId || groups.length <= 1) {
+      setGroupMenu((prev) => ({ ...prev, open: false }));
+      return;
+    }
+    const fallbackGroupId = groups.find((group) => group.id !== groupId)?.id ?? "home";
+    setGroups((prev) => prev.filter((group) => group.id !== groupId));
+    setSites((prev) =>
+      prev.map((site) => ({
+        ...site,
+        groupId: site.groupId === groupId ? fallbackGroupId : site.groupId,
+      })),
+    );
+    if (activeGroupId === groupId) {
+      setActiveGroupId(fallbackGroupId);
+    }
+    setGroupMenu((prev) => ({ ...prev, open: false }));
   };
 
   const saveEditedSite = () => {
@@ -362,6 +534,60 @@ function App() {
         if (isTimeExpanded) setIsTimeExpanded(false);
       }}
     >
+      <div
+        className="fixed inset-y-0 left-0 z-30 w-3"
+        onMouseEnter={() => setSidebarExpanded(true)}
+      />
+      <aside
+        className={`fixed inset-y-0 left-0 z-30 flex w-44 flex-col justify-between bg-sky-200/35 px-3 py-4 backdrop-blur-md transition-transform duration-200 ${
+          sidebarExpanded ? "translate-x-0" : "-translate-x-full"
+        }`}
+        onMouseEnter={() => setSidebarExpanded(true)}
+        onMouseLeave={() => {
+          if (!groupMenu.open && !groupDialogOpen) {
+            setSidebarExpanded(false);
+          }
+        }}
+      >
+        <div className="space-y-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/50">
+            <UserCircle2 className="h-6 w-6 text-zinc-600" />
+          </div>
+          <div className="space-y-1">
+            {groups.map((group) => {
+              const active = group.id === activeGroupId;
+              const Icon = groupIconMap[group.icon];
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => setActiveGroupId(group.id)}
+                  onContextMenu={(event) => openGroupMenu(event, group.id)}
+                  className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-zinc-700 transition ${
+                    active ? "bg-white/45" : "hover:bg-white/25"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {sidebarExpanded && <span className="text-sm">{group.name}</span>}
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={openAddGroupDialog}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-zinc-700 transition hover:bg-white/25"
+            >
+              <Plus className="h-4 w-4" />
+              {sidebarExpanded && <span className="text-sm">添加分组</span>}
+            </button>
+          </div>
+        </div>
+        <button className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-zinc-700 transition hover:bg-white/25">
+          <Settings className="h-4 w-4" />
+          {sidebarExpanded && <span className="text-sm">设置</span>}
+        </button>
+      </aside>
+
       <div className={`tab-overlay min-h-screen transition-all duration-300 ${isSearchMode ? "backdrop-blur-md" : ""}`}>
         <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
           <DialogTrigger asChild>
@@ -390,7 +616,7 @@ function App() {
           </DialogContent>
         </Dialog>
 
-        <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-8 py-8">
+        <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-8 py-8 pl-20">
           <section className="mx-auto mt-20 flex w-full max-w-4xl flex-1 flex-col items-center">
             <button
               type="button"
@@ -434,7 +660,7 @@ function App() {
             </div>
 
             <QuickSitesGrid
-              sites={orderedSites}
+              sites={visibleSites}
               siteSizes={siteSizes}
               draggingSite={draggingSite}
               isSearchMode={isSearchMode}
@@ -475,6 +701,27 @@ function App() {
           onEditIcon={openEditDialog}
           onDelete={requestDeleteCurrentSite}
         />
+      )}
+
+      {groupMenu.open && (
+        <div
+          className="fixed z-50 w-[150px] rounded-2xl border border-white/20 bg-slate-900/80 p-2 shadow-2xl backdrop-blur-xl"
+          style={{ left: groupMenu.x, top: groupMenu.y }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            className="flex h-9 w-full items-center rounded-lg px-3 text-left text-sm text-white hover:bg-white/12"
+            onClick={openEditGroupDialog}
+          >
+            编辑
+          </button>
+          <button
+            className="mt-1 flex h-9 w-full items-center rounded-lg px-3 text-left text-sm text-white hover:bg-white/12"
+            onClick={removeGroup}
+          >
+            移除
+          </button>
+        </div>
       )}
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
@@ -521,6 +768,50 @@ function App() {
         onIconSourceChange={setEditIconSource}
         officialFaviconUrl={buildGoogleFaviconUrl(editForm.url)}
       />
+
+      <Dialog open={groupDialogOpen} onOpenChange={setGroupDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingGroupId ? "编辑分组" : "添加分组"}</DialogTitle>
+            <DialogDescription>创建或修改分组，并选择分组图标。</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <p className="text-sm text-zinc-700">图标</p>
+              <div className="grid grid-cols-8 gap-3 rounded-xl bg-zinc-50 p-3">
+                {groupIconOptions.map((icon) => {
+                  const Icon = groupIconMap[icon];
+                  const active = groupForm.icon === icon;
+                  return (
+                    <button
+                      key={icon}
+                      type="button"
+                      onClick={() => setGroupForm((prev) => ({ ...prev, icon }))}
+                      className={`flex h-11 w-11 items-center justify-center rounded-xl border transition ${
+                        active ? "border-blue-500 bg-blue-50 text-blue-600" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <p className="text-sm text-zinc-700">名称</p>
+            <Input
+              value={groupForm.name}
+              onChange={(event) => setGroupForm((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="例如：设计"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setGroupDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={saveGroup}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

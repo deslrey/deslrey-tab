@@ -1,14 +1,19 @@
-import type { QuickSite, SearchEngine, TileSize } from "@/tab/types";
+import type { QuickSite, SearchEngine, TabGroup, TileSize } from "@/tab/types";
+
+export const defaultGroups: TabGroup[] = [
+  { id: "home", name: "主页", icon: "home" },
+  { id: "coding", name: "编程", icon: "code" },
+];
 
 export const defaultQuickSites: QuickSite[] = [
-  { name: "GitHub", short: "GH", url: "https://github.com", color: "bg-zinc-900" },
-  { name: "淘宝", short: "淘", url: "https://taobao.com", color: "bg-orange-500" },
-  { name: "Bilibili", short: "B", url: "https://bilibili.com", color: "bg-pink-500" },
-  { name: "百度", short: "度", url: "https://baidu.com", color: "bg-blue-500" },
-  { name: "掘金", short: "掘", url: "https://juejin.cn", color: "bg-cyan-500" },
-  { name: "抖音", short: "抖", url: "https://douyin.com", color: "bg-black" },
-  { name: "Steam", short: "S", url: "https://store.steampowered.com", color: "bg-slate-700" },
-  { name: "网易云", short: "云", url: "https://music.163.com", color: "bg-red-600" },
+  { name: "GitHub", short: "GH", url: "https://github.com", color: "bg-zinc-900", groupId: "coding" },
+  { name: "淘宝", short: "淘", url: "https://taobao.com", color: "bg-orange-500", groupId: "home" },
+  { name: "Bilibili", short: "B", url: "https://bilibili.com", color: "bg-pink-500", groupId: "home" },
+  { name: "百度", short: "度", url: "https://baidu.com", color: "bg-blue-500", groupId: "home" },
+  { name: "掘金", short: "掘", url: "https://juejin.cn", color: "bg-cyan-500", groupId: "coding" },
+  { name: "抖音", short: "抖", url: "https://douyin.com", color: "bg-black", groupId: "home" },
+  { name: "Steam", short: "S", url: "https://store.steampowered.com", color: "bg-slate-700", groupId: "home" },
+  { name: "网易云", short: "云", url: "https://music.163.com", color: "bg-red-600", groupId: "home" },
 ];
 
 export const iconColorOptions = [

@@ -5,6 +5,7 @@ export type QuickSite = {
   color: string;
   favicon?: string;
   iconSource?: IconSource;
+  groupId?: string;
 };
 
 export type ContextMenuState = {
@@ -29,3 +30,25 @@ export type SearchEngine = {
 };
 
 export type IconSource = "current" | "text" | "official";
+
+export type TabGroup = {
+  id: string;
+  name: string;
+  icon:
+    | "home"
+    | "code"
+    | "group"
+    | "heart"
+    | "music"
+    | "briefcase"
+    | "gamepad"
+    | "book"
+    | "wrench"
+    | "star"
+    | "palette"
+    | "image"
+    | "plane"
+    | "map"
+    | "shopping-bag"
+    | "terminal";
+};
